@@ -1,10 +1,9 @@
 node {
  try  {
  notify('Job Started') 
-
      
   stage('Git-Checkout') {
-   git 'https://github.com/amitvashisttech/mindtree-devops-30Jan2020.git'
+   git 'https://github.com/NiharSibu/PetClinic.git'
   }
     
  def project_path="01-Jenkins/Code/petclinic"
@@ -15,23 +14,17 @@ node {
    sh label: '', script: 'mvn clean'
   }
     
- stage('Maven-Compile') {
+  stage('Maven-Compile') {
    sh label: '', script: 'mvn compile'
   }
   
-   stage('Maven-Test') {
-   sh label: '', script: 'mvn test'
+  stage('Sonar Analysis') {
+   withSonarQubeEnv('sonarqube') {
+        sh "mvn sonar:sonar"
+    }
   }
-  
    stage('Maven-Package') {
    sh label: '', script: 'mvn package'
-  }
-  
-   stage('Archive-Artifacts') {
-   archiveArtifacts 'target/*.war'
-  }
-   stage('Docker-Stage-Deployment') {
-   sh label: '', script: 'docker-compose up -d --build'
   }
  
   stage('Geting Ready For Ansible') {
@@ -40,6 +33,17 @@ node {
 }  
    
  }
+ stage('Jfrog Artifacory'){
+    script{
+        def server= Artifactory.server 'Artifactory'
+            def uploadSpec= """{
+                "files": [{
+                "pattern": "/root/.jenkins/workspace/Pet-Clinic/petclinic/target/petclinic.war",
+                "target": "petclinic"}]
+            }"""
+        server.upload(uploadSpec)
+     }
+    }
 
 def project_terra="04-Terraform/03-Ansible-Deploy"
 dir(project_terra) {
@@ -56,8 +60,6 @@ notify('Job Completed')
 }
 }
 
-
-
 def notify(status){
     emailext (
 	to: "amitvashist7@gmail.com",
@@ -66,4 +68,3 @@ def notify(status){
 	<p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>""",
 		)
 	}
-
